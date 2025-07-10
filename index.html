@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Display Image via Pre-signed URL</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+        text-align: center;
+      }
+      input[type="text"] {
+        width: 400px;
+        padding: 8px;
+        margin-bottom: 10px;
+      }
+      button {
+        padding: 10px 15px;
+        cursor: pointer;
+      }
+      img {
+        max-width: 80%;
+        height: auto;
+        border: 1px solid #ddd;
+        margin-top: 20px;
+      }
+      .status-message {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      .error-message {
+        color: red;
+      }
+      .success-message {
+        color: green;
+      }
+      .info {
+        margin-top: 10px;
+        color: #666;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Display Image via Pre-signed URL</h1>
+
+    <p>Masukkan S3 Key lengkap gambar yang ingin Anda tampilkan:</p>
+    <input
+      type="text"
+      id="imageKeyInput"
+      value="uploads/1752125086833_desain1.jpg"
+      placeholder="e.g., uploads/my-image.jpg"
+    />
+    <button onclick="displayImage()">Tampilkan Gambar</button>
+
+    <p class="status-message" id="statusMessage"></p>
+
+    <div class="info">
+      <p>
+        Gambar akan dimuat langsung dari S3 menggunakan URL sementara
+        (pre-signed URL) yang didapatkan dari backend Anda.
+      </p>
+      <p id="imageSrcInfo"></p>
+    </div>
+
+    <img id="myImage" src="" alt="Gambar dari S3" />
+
+    <script>
+      const BACKEND_URL = "http://localhost:3000"; // Sesuaikan jika backend Anda di port/domain lain
+
+      async function displayImage() {
+        const imageKey = document.getElementById("imageKeyInput").value;
+        const statusMessage = document.getElementById("statusMessage");
+        const imageElement = document.getElementById("myImage");
+        const imageSrcInfo = document.getElementById("imageSrcInfo");
+
+        statusMessage.textContent = "";
+        statusMessage.className = "status-message";
+        imageElement.src = ""; // Bersihkan gambar sebelumnya
+        imageElement.alt = "Gambar dari S3";
+        imageSrcInfo.textContent = "";
+
+        if (!imageKey) {
+          statusMessage.textContent = "Silakan masukkan S3 Key.";
+          statusMessage.classList.add("error-message");
+          return;
+        }
+
+        statusMessage.textContent = "Meminta pre-signed URL dari backend...";
+        statusMessage.classList.add("info");
+
+        try {
+          // Buat URL ke endpoint backend yang akan mengembalikan pre-signed URL
+          const backendRequestUrl = `${BACKEND_URL}/files/${encodeURIComponent(
+            imageKey
+          )}`;
+
+          const response = await fetch(backendRequestUrl);
+          const data = await response.json();
+
+          if (response.ok && data.url) {
+            statusMessage.textContent =
+              "Pre-signed URL berhasil didapatkan! Memuat gambar...";
+            statusMessage.classList.add("success-message");
+
+            // Gunakan pre-signed URL untuk mengatur sumber gambar
+            imageElement.src = data.url;
+            imageSrcInfo.textContent = `URL Gambar (dari S3): ${data.url.substring(
+              0,
+              100
+            )}... (URL ini bersifat sementara)`; // Potong untuk tampilan
+
+            imageElement.onload = () => {
+              statusMessage.textContent = "Gambar berhasil dimuat!";
+              statusMessage.classList.add("success-message");
+            };
+            imageElement.onerror = () => {
+              statusMessage.textContent =
+                "Gagal memuat gambar dari S3. Pre-signed URL mungkin tidak valid atau kedaluwarsa.";
+              statusMessage.classList.add("error-message");
+            };
+          } else {
+            statusMessage.textContent = `Gagal mendapatkan pre-signed URL: ${
+              data.error || response.statusText
+            }`;
+            statusMessage.classList.add("error-message");
+            console.error("Backend response error:", data);
+          }
+        } catch (error) {
+          console.error("Error saat melakukan fetch ke backend:", error);
+          statusMessage.textContent = `Terjadi kesalahan jaringan: ${error.message}`;
+          statusMessage.classList.add("error-message");
+        }
+      }
+
+      // Tampilkan gambar default saat halaman dimuat
+      document.addEventListener("DOMContentLoaded", displayImage);
+    </script>
+  </body>
+</html>
